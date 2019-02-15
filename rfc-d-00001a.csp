@@ -1,0 +1,180 @@
+﻿/*	RFC-D-00001a
+ *	Draft v0001a
+ */
+ 
+//=======================Model Details===========================
+
+enum {
+	ServerHello, ServerKeyShare, ServerEncryptedExtensions, ServerCertificateRequest,
+    ServerHelloDone, ServerFinished,HelloRequest, ServerCertificateVerify,
+    Hello, ServerCertificate,Certificate, KeyShare, CertificateVerify, Finished, ApplicationData,
+    Nobody, Client, Server, Attacker,
+    client_server_key, attacker_server_key
+};
+
+channel network 0;
+channel attackerBuffer 10;
+
+var client_connects = Nobody;
+var server_connects = Nobody;
+var attacker_server_connected = false;
+
+ClientProc() = ClientNegotiate();
+ClientNegotiate() = 
+   network!Client.Hello ->
+   network!Client.KeyShare ->
+   network?ServerHello ->
+   network?ServerKeyShare ->
+   network?ServerEncryptedExtensions ->
+   network?ServerCertificateRequest ->
+   network?ServerHelloDone ->
+   network?ServerCertificate ->
+   network?ServerCertificateVerify ->
+   network?ServerFinished ->
+   network!Client.Certificate ->
+   network!Client.CertificateVerify ->
+   network!Client.Finished ->
+   clientconnected{client_connects = Server} ->
+   ClientConnected();
+   
+ClientConnected() = network?client_server_key.HelloRequest -> ClientReNegotiate();
+
+ClientReNegotiate() = 
+   network!client_server_key.Client.Hello ->
+   network!client_server_key.Client.KeyShare ->
+   network?client_server_key.ServerHello ->
+   network?client_server_key.ServerKeyShare ->
+   network?client_server_key.ServerEncryptedExtensions ->
+   network?client_server_key.ServerCertificateRequest ->
+   network?client_server_key.ServerHelloDone ->
+   network?client_server_key.ServerCertificate ->
+   network?client_server_key.ServerCertificateVerify ->
+   network?client_server_key.ServerFinished ->
+   network!client_server_key.Client.Certificate ->
+   network!client_server_key.Client.CertificateVerify ->
+   network!client_server_key.Client.Finished ->
+   ClientConnected();
+
+ServerProc() = ServerNegotiate();
+ServerNegotiate() = 
+   network?x.Hello ->
+   network?x.KeyShare ->
+   network!ServerHello ->
+   network!ServerKeyShare ->
+   network!ServerEncryptedExtensions ->
+   network!ServerCertificateRequest ->
+   network!ServerHelloDone ->
+   network!ServerCertificate ->
+   network!ServerCertificateVerify ->
+   network!ServerFinished ->
+   network?x.Certificate ->
+   network?x.CertificateVerify ->
+   network?x.Finished ->
+   serverconnected{server_connects = x} ->
+   ServerConnected(x);
+
+ServerConnected(x) =
+   if (x == Client) {
+       network!client_server_key.HelloRequest -> ServerReNegotiate(client_server_key)
+   }
+   else {
+       network!attacker_server_key.HelloRequest -> ServerReNegotiate(attacker_server_key)
+   };
+
+ServerReNegotiate(x) = 
+   network?x.y.Hello ->
+   network!x.ServerHello ->
+   network!x.ServerKeyShare ->
+   network!x.ServerEncryptedExtensions ->
+   network!x.ServerCertificateRequest ->
+   network!x.ServerHelloDone ->
+   network!x.ServerCertificate ->
+   network!x.ServerCertificateVerify ->
+   network!x.ServerFinished ->
+   network?x.y.Certificate ->
+   network?x.y.CertificateVerify ->
+   network?x.y.Finished ->
+   serverconnected{server_connects = y} ->
+   ServerConnected(y);
+
+aSystem = ClientProc() ||| ServerProc();
+bSystem = AttackerProc() ||| ServerProc();
+
+AttackerProc() = AttackerNegotiate() [] AttackerAsServer() [] AttackerRelay() [] AttackerReNegotiate();
+
+AttackerRelay() = attackerBuffer?x.y -> network!attacker_server_key.x.y -> AttackerProc()
+               [] network?y.z -> attackerBuffer!y.z -> AttackerProc() 
+               [] network?attacker_server_key.y -> network!y -> AttackerProc() 
+               [] network?y.z -> network!attacker_server_key.y.z -> AttackerProc();
+
+AttackerAsServer() = network?Client.Hello -> attackerBuffer!Client.Hello -> AttackerProc();
+
+AttackerNegotiate() = 
+   network!Attacker.Hello ->
+   network!Attacker.KeyShare ->
+   network?ServerHello ->
+   network?ServerKeyShare ->
+   network?ServerEncryptedExtensions ->
+   network?ServerCertificateRequest ->
+   network?ServerHelloDone ->
+   network?ServerCertificate ->
+   network?ServerCertificateVerify ->
+   network?ServerFinished ->
+   network!Attacker.Certificate ->
+   network!Attacker.CertificateVerify ->
+   network!Attacker.Finished ->
+   attackerconnected{attacker_server_connected = true} ->
+   AttackerConnected();
+
+AttackerConnected() = network?attacker_server_key.HelloRequest -> AttackerProc();
+
+AttackerReNegotiate() = 
+   network!attacker_server_key.Attacker.Hello ->
+   network!attacker_server_key.Attacker.KeyShare ->
+   network?attacker_server_key.ServerHello ->
+   network?attacker_server_key.ServerKeyShare ->
+   network?attacker_server_key.ServerEncryptedExtensions ->
+   network?attacker_server_key.ServerCertificateRequest ->
+   network?attacker_server_key.ServerHelloDone ->
+   network?attacker_server_key.ServerCertificate ->
+   network?attacker_server_key.ServerCertificateVerify ->
+   network?attacker_server_key.ServerFinished ->
+   network!attacker_server_key.Attacker.Certificate ->
+   network!attacker_server_key.Attacker.CertificateVerify ->
+   network!attacker_server_key.Attacker.Finished ->
+   AttackerConnected();
+
+SpecificAttacker = 
+   network?Client.Hello -> attackerBuffer!Client.Hello ->
+   network?Client.KeyShare -> attackerBuffer!Client.KeyShare->
+   network!Attacker.Hello ->
+   network!Attacker.KeyShare ->
+   network?ServerHello ->
+   network?ServerKeyShare ->
+   network?ServerEncryptedExtensions ->
+   network?ServerCertificateRequest ->
+   network?ServerHelloDone ->
+   network?ServerCertificate ->
+   network?ServerCertificateVerify ->
+   network?ServerFinished ->
+   network!Attacker.Certificate ->
+   network!Attacker.CertificateVerify ->
+   network!Attacker.Finished ->
+   attackerconnected{attacker_server_connected = true} ->
+   network?attacker_server_key.HelloRequest ->
+   attackerBuffer?Client.Hello ->
+   attackerBuffer?Client.KeyShare ->
+   network!attacker_server_key.Client.Hello ->
+   network!attacker_server_key.Client.KeyShare->
+   SpecificRelay();
+
+SpecificRelay() = network?attacker_server_key.y -> network!y -> SpecificRelay()
+               [] network?x.z -> network!attacker_server_key.x.z -> SpecificRelay();
+
+TLS = ServerProc() ||| AttackerProc() ||| ClientProc();
+TLSWithSpecificAttacker = ServerProc() ||| SpecificAttacker() ||| ClientProc();
+
+#define violation attacker_server_connected && server_connects == Client && client_connects == Server;
+#assert TLS deadlockfree;
+#assert TLS reaches violation;
+#assert TLSWithSpecificAttacker reaches violation;
