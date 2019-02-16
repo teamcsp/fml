@@ -1,0 +1,64 @@
+﻿enum{
+	ClientHello,
+	ClientKeyShare,
+	ServerHello,
+	ServerKeyShare,
+	ServerEncryptedExtensions,
+	ServerCertificateRequest,
+	ServerCertificate,
+	ServerCertificateSignature,
+	ServerDone,
+	ClientCertificate,
+	ClientCertificateSignature,
+	ClientDone
+};
+
+// This simple client-server model is based on the diagram found in the PDF
+
+channel network 0;
+
+Client() = 
+	network!ClientHello ->
+	network!ClientKeyShare ->
+	
+	network?ServerHello ->
+	network?ServerKeyShare ->
+	network?ServerEncryptedExtensions ->
+	
+	network?ServerCertificateRequest -> // optional???
+	network?ServerCertificate ->
+	network?ServerCertificateSignature ->
+	
+	network?ServerDone ->
+	
+	network!ClientCertificate ->
+	network!ClientCertificateSignature ->
+	network!ClientDone ->
+	ClientConnected();
+	
+ClientConnected() = done -> ClientConnected();
+
+Server() = 
+	network?ClientHello ->
+	network?ClientKeyShare ->
+	
+	network!ServerHello ->
+	network!ServerKeyShare ->
+	network!ServerEncryptedExtensions ->
+	
+	network!ServerCertificateRequest -> // optional???
+	network!ServerCertificate ->
+	network!ServerCertificateSignature ->
+	
+	network!ServerDone ->
+	
+	network?ClientCertificate ->
+	network?ClientCertificateSignature ->
+	network?ClientDone ->
+	ServerConnected();
+
+ServerConnected() = done -> ServerConnected();
+
+System() = Client() || Server();
+
+#assert System deadlockfree;
