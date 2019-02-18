@@ -25,12 +25,29 @@ Client() =
 	network?ServerKeyShare ->
 	network?ServerEncryptedExtensions ->
 	
-	((network?ServerCertificateRequest -> network?ServerCertificate ->	network?ServerCertificateSignature ->	network?ServerDone ->network!ClientCertificate ->
-	network!ClientCertificateSignature ->network!ClientDone ->	ClientConnected() ) 
+	ClientReceiveCertRequest() 
 	[]
-	(network?ServerCertificate ->network?ServerCertificateSignature ->network?ServerDone ->	network!ClientDone ->ClientConnected()
-	));
+	ClientReceiveServerCert();
+
+ClientReceiveCertRequest() =
+	network?ServerCertificateRequest -> 
+	network?ServerCertificate ->	
+	network?ServerCertificateSignature ->	
+	network?ServerDone ->
+	network!ClientCertificate ->
+	network!ClientCertificateSignature ->
+	network!ClientDone ->	
+	ClientConnected();
+
+ClientReceiveServerCert() = 
+	network?ServerCertificate ->
+	network?ServerCertificateSignature ->
+	network?ServerDone ->	
+	network!ClientDone ->
+	ClientConnected();
 	
+
+
 ClientConnected() = done -> ClientConnected();
 
 Server() = 
@@ -41,11 +58,27 @@ Server() =
 	network!ServerKeyShare ->
 	network!ServerEncryptedExtensions ->
 
-	((network!ServerCertificateRequest -> network!ServerCertificate ->	network!ServerCertificateSignature ->	network!ServerDone ->network?ClientCertificate ->
-	network?ClientCertificateSignature ->network?ClientDone ->	ServerConnected() ) 
+	ServerRequestCert() 
 	[]
-	(network!ServerCertificate ->network!ServerCertificateSignature ->network!ServerDone ->	network?ClientDone ->ServerConnected()
-	));
+	ServerSendCert();
+	
+ServerRequestCert() = 
+	network!ServerCertificateRequest -> 
+	network!ServerCertificate ->	
+	network!ServerCertificateSignature ->	
+	network!ServerDone ->
+	network?ClientCertificate ->
+	network?ClientCertificateSignature ->
+	network?ClientDone ->	
+	ServerConnected();
+	
+ServerSendCert() = 
+	network!ServerCertificate ->
+	network!ServerCertificateSignature ->
+	network!ServerDone ->	
+	network?ClientDone ->
+	ServerConnected();
+	
 
 ServerConnected() = done -> ServerConnected();
 
