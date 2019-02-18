@@ -25,16 +25,11 @@ Client() =
 	network?ServerKeyShare ->
 	network?ServerEncryptedExtensions ->
 	
-	network?ServerCertificateRequest -> // optional???
-	network?ServerCertificate ->
-	network?ServerCertificateSignature ->
-	
-	network?ServerDone ->
-	
-	network!ClientCertificate ->
-	network!ClientCertificateSignature ->
-	network!ClientDone ->
-	ClientConnected();
+	((network?ServerCertificateRequest -> network?ServerCertificate ->	network?ServerCertificateSignature ->	network?ServerDone ->network!ClientCertificate ->
+	network!ClientCertificateSignature ->network!ClientDone ->	ClientConnected() ) 
+	[]
+	(network?ServerCertificate ->network?ServerCertificateSignature ->network?ServerDone ->	network!ClientDone ->ClientConnected()
+	));
 	
 ClientConnected() = done -> ClientConnected();
 
@@ -45,17 +40,12 @@ Server() =
 	network!ServerHello ->
 	network!ServerKeyShare ->
 	network!ServerEncryptedExtensions ->
-	
-	network!ServerCertificateRequest -> // optional???
-	network!ServerCertificate ->
-	network!ServerCertificateSignature ->
-	
-	network!ServerDone ->
-	
-	network?ClientCertificate ->
-	network?ClientCertificateSignature ->
-	network?ClientDone ->
-	ServerConnected();
+
+	((network!ServerCertificateRequest -> network!ServerCertificate ->	network!ServerCertificateSignature ->	network!ServerDone ->network?ClientCertificate ->
+	network?ClientCertificateSignature ->network?ClientDone ->	ServerConnected() ) 
+	[]
+	(network!ServerCertificate ->network!ServerCertificateSignature ->network!ServerDone ->	network?ClientDone ->ServerConnected()
+	));
 
 ServerConnected() = done -> ServerConnected();
 
