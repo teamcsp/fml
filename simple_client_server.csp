@@ -1,5 +1,8 @@
 ﻿enum{
-	ClientHello,
+	Nobody,
+	Client,
+	Attacker,
+	Hello,
 	ClientKeyShare,
 	ServerHello,
 	ServerKeyShare,
@@ -8,80 +11,83 @@
 	ServerCertificate,
 	ServerCertificateSignature,
 	ServerDone,
-	ClientCertificate,
-	ClientCertificateSignature,
-	ClientDone
+	Certificate,
+	CertificateSignature,
+	Done
 };
+
+var connectedClient = Nobody;
+var serverConnectedTo = Nobody;
 
 // This simple client-server model is based on the diagram found in the PDF
 
 channel network 0;
 
-Client() = 
-	network!ClientHello ->
+ClientProcess() = 
+	network!Client.Hello ->
 	network!ClientKeyShare ->
 	
 	network?ServerHello ->
 	network?ServerKeyShare ->
 	network?ServerEncryptedExtensions ->
 	
-	ClientReceiveCertRequest() 
+	(ClientReceiveCertRequest(Client)
 	[]
-	ClientReceiveServerCert();
+	ClientReceiveServerCert(Client));
 
-ClientReceiveCertRequest() =
+ClientReceiveCertRequest(x) =
 	network?ServerCertificateRequest -> 
 	network?ServerCertificate ->	
 	network?ServerCertificateSignature ->	
 	network?ServerDone ->
-	network!ClientCertificate ->
-	network!ClientCertificateSignature ->
-	network!ClientDone ->	
-	ClientConnected();
+	network!x.Certificate ->
+	network!x.CertificateSignature ->
+	network!x.Done ->	
+	ClientConnected(x);
 
-ClientReceiveServerCert() = 
+ClientReceiveServerCert(x) = 
 	network?ServerCertificate ->
 	network?ServerCertificateSignature ->
 	network?ServerDone ->	
-	network!ClientDone ->
-	ClientConnected();
+	network!x.Done ->
+	ClientConnected(x);
 	
 
 
-ClientConnected() = done -> ClientConnected();
+ClientConnected(x) = clientconnected{connectedClient = x} -> ClientConnected(x);
 
-Server() = 
-	network?ClientHello ->
+ServerProcess() = 
+	network?x.Hello ->
 	network?ClientKeyShare ->
 	
 	network!ServerHello ->
 	network!ServerKeyShare ->
 	network!ServerEncryptedExtensions ->
 
-	ServerRequestCert() 
+	(ServerRequestCert() 
 	[]
-	ServerSendCert();
+	ServerSendCert());
 	
 ServerRequestCert() = 
 	network!ServerCertificateRequest -> 
 	network!ServerCertificate ->	
 	network!ServerCertificateSignature ->	
 	network!ServerDone ->
-	network?ClientCertificate ->
-	network?ClientCertificateSignature ->
-	network?ClientDone ->	
-	ServerConnected();
+	network?x.Certificate ->
+	network?x.CertificateSignature ->
+	network?x.Done ->	
+	ServerConnected(x);
 	
 ServerSendCert() = 
 	network!ServerCertificate ->
 	network!ServerCertificateSignature ->
 	network!ServerDone ->	
-	network?ClientDone ->
-	ServerConnected();
+	network?x.Done ->
+	ServerConnected(x);
 	
 
-ServerConnected() = done -> ServerConnected();
+ServerConnected(x) = serverconnected{serverConnectedTo = x} -> ServerConnected(x);
 
-System() = Client() || Server();
+System() = ClientProcess() ||| ServerProcess();
 
 #assert System deadlockfree;
