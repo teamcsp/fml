@@ -3,7 +3,7 @@
 	Client,
 	Attacker,
 	Hello,
-	ClientKeyShare,
+	KeyShare,
 	ServerHello,
 	ServerKeyShare,
 	ServerEncryptedExtensions,
@@ -25,7 +25,7 @@ channel network 0;
 
 ClientProcess() = 
 	network!Client.Hello ->
-	network!ClientKeyShare ->
+	network!Client.KeyShare ->
 	
 	network?ServerHello ->
 	network?ServerKeyShare ->
@@ -51,14 +51,26 @@ ClientReceiveServerCert(x) =
 	network?ServerDone ->	
 	network!x.Done ->
 	ClientConnected(x);
-	
-
 
 ClientConnected(x) = clientconnected{connectedClient = x} -> ClientConnected(x);
 
+
+AttackerClientProcess() = 
+	network!Attacker.Hello ->
+	network!Attacker.KeyShare ->
+	
+	network?ServerHello ->
+	network?ServerKeyShare ->
+	network?ServerEncryptedExtensions ->
+	
+	(ClientReceiveCertRequest(Attacker)
+	[]
+	ClientReceiveServerCert(Attacker));
+
+
 ServerProcess() = 
 	network?x.Hello ->
-	network?ClientKeyShare ->
+	network?x.KeyShare ->
 	
 	network!ServerHello ->
 	network!ServerKeyShare ->
@@ -67,7 +79,7 @@ ServerProcess() =
 	(ServerRequestCert() 
 	[]
 	ServerSendCert());
-	
+		
 ServerRequestCert() = 
 	network!ServerCertificateRequest -> 
 	network!ServerCertificate ->	
@@ -88,6 +100,6 @@ ServerSendCert() =
 
 ServerConnected(x) = serverconnected{serverConnectedTo = x} -> ServerConnected(x);
 
-System() = ClientProcess() ||| ServerProcess();
+System() = ClientProcess() ||| ServerProcess() ||| AttackerClientProcess();
 
 #assert System deadlockfree;
