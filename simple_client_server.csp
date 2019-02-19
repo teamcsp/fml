@@ -100,6 +100,10 @@ ServerSendCert() =
 
 ServerConnected(x) = serverconnected{serverConnectedTo = x} -> ServerConnected(x);
 
-System() = ClientProcess() ||| ServerProcess() ||| AttackerClientProcess();
+SystemMultipleClient() = ClientProcess() ||| ServerProcess() ||| AttackerClientProcess();
+SystemRegularClient() = ClientProcess() ||| ServerProcess();
 
-#assert System deadlockfree;
+#define attacker_as_client_connected serverConnectedTo == Attacker && connectedClient == Attacker;
+#assert SystemMultipleClient deadlockfree;
+#assert SystemRegularClient deadlockfree;
+#assert SystemMultipleClient reaches attacker_as_client_connected;
