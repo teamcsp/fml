@@ -16,7 +16,7 @@
 	Done
 };
 
-var connectedClient = Nobody;
+var clientConnectedTo = Nobody;
 var serverConnectedTo = Nobody;
 
 // This simple client-server model is based on the diagram found in the PDF
@@ -52,7 +52,7 @@ ClientReceiveServerCert(x) =
 	network!x.Done ->
 	ClientConnected(x);
 
-ClientConnected(x) = clientconnected{connectedClient = x} -> ClientConnected(x);
+ClientConnected(x) = clientconnected{clientConnectedTo = x} -> ClientConnected(x);
 
 
 AttackerClientProcess() = 
@@ -103,7 +103,7 @@ ServerConnected(x) = serverconnected{serverConnectedTo = x} -> ServerConnected(x
 SystemMultipleClient() = ClientProcess() ||| ServerProcess() ||| AttackerClientProcess();
 SystemRegularClient() = ClientProcess() ||| ServerProcess();
 
-#define attacker_as_client_connected serverConnectedTo == Attacker && connectedClient == Attacker;
+#define attacker_as_client_connected serverConnectedTo == Attacker && clientConnectedTo == Attacker;
 #assert SystemMultipleClient deadlockfree;
 #assert SystemRegularClient deadlockfree;
 #assert SystemMultipleClient reaches attacker_as_client_connected;
