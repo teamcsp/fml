@@ -101,31 +101,6 @@ ClientConnected(x) =
        network?attacker_server_key.HelloRequest -> AttackerProcess()
     };
 
-AttackerNegotiate() = 
-	network!Attacker.Hello ->
-	network!Attacker.KeyShare ->
-	
-	network?ServerHello ->
-	network?ServerKeyShare ->
-	network?ServerEncryptedExtensions ->
-	
-	(XReceiveCertRequest(Attacker)
-	[]
-	XReceiveServerCert(Attacker));
-
-AttackerReNegotiate() = 
-	network!attacker_server_key.Attacker.Hello ->
-	network!attacker_server_key.Attacker.KeyShare ->
-	
-	network?attacker_server_key.ServerHello ->
-	network?attacker_server_key.ServerKeyShare ->
-	network?attacker_server_key.ServerEncryptedExtensions ->
-	
-	(XWithKeyYReceiveCertRequest(Attacker, attacker_server_key)
-	[]
-	XWithKeyYServerCert(Attacker, attacker_server_key));
-
-
 ServerProcess() = ServerNegotiate();
 
 ServerNegotiate() = 
@@ -199,16 +174,51 @@ ServerConnected(x) =
        	network!attacker_server_key.HelloRequest -> ServerReNegotiate(attacker_server_key)
    	};
 
+AttackerNegotiate() = 
+	network!Attacker.Hello ->
+	network!Attacker.KeyShare ->
+	
+	network?ServerHello ->
+	network?ServerKeyShare ->
+	network?ServerEncryptedExtensions ->
+	
+	(XReceiveCertRequest(Attacker)
+	[]
+	XReceiveServerCert(Attacker));
 
-AttackerProcess() = AttackerNegotiate() [] AttackerReNegotiate();
+AttackerReNegotiate() = 
+	network!attacker_server_key.Attacker.Hello ->
+	network!attacker_server_key.Attacker.KeyShare ->
+	
+	network?attacker_server_key.ServerHello ->
+	network?attacker_server_key.ServerKeyShare ->
+	network?attacker_server_key.ServerEncryptedExtensions ->
+	
+	(XWithKeyYReceiveCertRequest(Attacker, attacker_server_key)
+	[]
+	XWithKeyYServerCert(Attacker, attacker_server_key));
+
+AttackerAsServer() = 
+	network!Client.Hello ->
+	attackerBuffer!Client.Hello ->
+	network!Client.KeyShare ->
+	attackerBuffer!Client.KeyShare ->
+	AttackerProcess();
+	
+AttackerRelay() = attackerBuffer?x.z -> network!attacker_server_key.x.z -> AttackerProcess()
+               [] network?x.z -> attackerBuffer!x.z -> AttackerProcess() 
+               [] network?attacker_server_key.z -> network!z -> AttackerProcess() 
+               [] network?x.z -> network!attacker_server_key.x.z -> AttackerProcess();
+
+AttackerProcess() = AttackerNegotiate() [] AttackerReNegotiate() [] AttackerAsServer() [] AttackerRelay();
 SystemMultipleClient() = ClientProcess() ||| ServerProcess() ||| AttackerProcess();
 SystemRegularClient() = ClientProcess() ||| ServerProcess();
 SystemAttackerClient() = AttackerProcess() ||| ServerProcess();
 
 #define client_server_connected clientConnectedTo == Server && serverConnectedTo == Client;
-#define attacker_server_isConnected attacker_server_connected == true && serverConnectedTo == Attacker;
+#define violation attacker_server_connected == true && client_server_connected;
 #assert SystemMultipleClient deadlockfree;
 #assert SystemRegularClient deadlockfree;
 #assert SystemAttackerClient deadlockfree;
 #assert SystemRegularClient reaches client_server_connected;
-#assert SystemMultipleClient reaches attacker_server_isConnected;
+#assert SystemMultipleClient reaches violation;
