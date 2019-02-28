@@ -1,0 +1,213 @@
+﻿enum{
+	Nobody,
+	Client,
+	Attacker,
+	Server,
+	Hello,
+	HelloRequest,
+	KeyShare,
+	ServerHello,
+	ServerKeyShare,
+	ServerEncryptedExtensions,
+	ServerCertificateRequest,
+	ServerCertificate,
+	ServerCertificateSignature,
+	ServerDone,
+	Certificate,
+	CertificateSignature,
+	Done,
+    client_server_key,
+    attacker_server_key
+};
+
+var clientConnectedTo = Nobody;
+var serverConnectedTo = Nobody;
+var attacker_server_connected = false;
+
+
+// This simple client-server model is based on the diagram found in the PDF
+
+channel network 0;
+channel attackerBuffer 10;
+
+ClientProcess() = ClientNegotiate();
+
+ClientNegotiate() = 
+	network!Client.Hello ->
+	network!Client.KeyShare ->
+	
+	network?ServerHello ->
+	network?ServerKeyShare ->
+	network?ServerEncryptedExtensions ->
+	
+	(XReceiveCertRequest(Client)
+	[]
+	XReceiveServerCert(Client));
+
+ClientReNegotiate() = 
+	network!client_server_key.Client.Hello ->
+	network!client_server_key.Client.KeyShare ->
+	
+	network?client_server_key.ServerHello ->
+	network?client_server_key.ServerKeyShare ->
+	network?client_server_key.ServerEncryptedExtensions ->
+	
+	(XWithKeyYReceiveCertRequest(Client, client_server_key)
+	[]
+	XWithKeyYServerCert(Client, client_server_key));
+
+XReceiveCertRequest(x) =
+	network?ServerCertificateRequest -> 
+	network?ServerCertificate ->	
+	network?ServerCertificateSignature ->	
+	network?ServerDone ->
+	network!x.Certificate ->
+	network!x.CertificateSignature ->
+	network!x.Done ->
+	ClientConnected(x);
+
+XReceiveServerCert(x) = 
+	network?ServerCertificate ->
+	network?ServerCertificateSignature ->
+	network?ServerDone ->	
+	network!x.Done ->
+	ClientConnected(x);
+
+XWithKeyYReceiveCertRequest(x,y) =
+	network?y.ServerCertificateRequest -> 
+	network?y.ServerCertificate ->	
+	network?y.ServerCertificateSignature ->	
+	network?y.ServerDone ->
+	network!y.x.Certificate ->
+	network!y.x.CertificateSignature ->
+	network!y.x.Done ->
+	ClientConnected(x);
+
+XWithKeyYServerCert(x,y) = 
+	network?y.ServerCertificate ->
+	network?y.ServerCertificateSignature ->
+	network?y.ServerDone ->	
+	network!y.x.Done ->
+	ClientConnected(x);
+
+
+ClientConnected(x) = 
+    if (x == Client) {
+       clientConnected{ clientConnectedTo = Server } -> 
+       network?client_server_key.HelloRequest -> ClientReNegotiate()
+   	}
+    else {
+       attackerconnected{ attacker_server_connected = true } ->
+       network?attacker_server_key.HelloRequest -> AttackerReNegotiate()
+    };
+
+AttackerClientProcess() = AttackerNegotiate(); 
+AttackerNegotiate() = 
+	network!Attacker.Hello ->
+	network!Attacker.KeyShare ->
+	
+	network?ServerHello ->
+	network?ServerKeyShare ->
+	network?ServerEncryptedExtensions ->
+	
+	(XReceiveCertRequest(Attacker)
+	[]
+	XReceiveServerCert(Attacker));
+
+AttackerReNegotiate() = 
+	network!attacker_server_key.Attacker.Hello ->
+	network!attacker_server_key.Attacker.KeyShare ->
+	
+	network?attacker_server_key.ServerHello ->
+	network?attacker_server_key.ServerKeyShare ->
+	network?attacker_server_key.ServerEncryptedExtensions ->
+	
+	(XWithKeyYReceiveCertRequest(Attacker, attacker_server_key)
+	[]
+	XWithKeyYServerCert(Attacker, attacker_server_key));
+
+
+ServerProcess() = ServerNegotiate();
+
+ServerNegotiate() = 
+	network?x.Hello ->
+	network?x.KeyShare ->
+	
+	network!ServerHello ->
+	network!ServerKeyShare ->
+	network!ServerEncryptedExtensions ->
+
+	(ServerRequestCert() 
+	[]
+	ServerSendCert());
+	
+ServerReNegotiate(y) = 
+	network?y.x.Hello ->
+	network?y.x.KeyShare ->
+	
+	network!y.ServerHello ->
+	network!y.ServerKeyShare ->
+	network!y.ServerEncryptedExtensions ->
+
+	(ServerRequestCertWithKeyY(y) 
+	[]
+	ServerSendCertWithKeyY(y));	
+		
+ServerRequestCert() = 
+	network!ServerCertificateRequest -> 
+	network!ServerCertificate ->	
+	network!ServerCertificateSignature ->	
+	network!ServerDone ->
+	network?x.Certificate ->
+	network?x.CertificateSignature ->
+	network?x.Done ->	
+	serverconnected{serverConnectedTo = x} ->
+	ServerConnected(x);
+	
+ServerSendCert() = 
+	network!ServerCertificate ->
+	network!ServerCertificateSignature ->
+	network!ServerDone ->	
+	network?x.Done ->
+	serverconnected{serverConnectedTo = x} ->
+	ServerConnected(x);
+	
+ServerRequestCertWithKeyY(y) = 
+	network!y.ServerCertificateRequest -> 
+	network!y.ServerCertificate ->	
+	network!y.ServerCertificateSignature ->	
+	network!y.ServerDone ->
+	network?y.x.Certificate ->
+	network?y.x.CertificateSignature ->
+	network?y.x.Done ->	
+	serverconnected{serverConnectedTo = x} ->
+	ServerConnected(x);
+	
+ServerSendCertWithKeyY(y) = 
+	network!y.ServerCertificate ->
+	network!y.ServerCertificateSignature ->
+	network!y.ServerDone ->	
+	network?y.x.Done ->
+	serverconnected{serverConnectedTo = x} ->
+	ServerConnected(x);
+
+
+ServerConnected(x) = 
+	if (x == Client) {
+    	network!client_server_key.HelloRequest -> ServerReNegotiate(client_server_key)
+   	}
+   	else {
+       	network!attacker_server_key.HelloRequest -> ServerReNegotiate(attacker_server_key)
+   	};
+
+
+AttackerProcess() = AttackerClientProcess();
+SystemMultipleClient() = ClientProcess() ||| ServerProcess() ||| AttackerProcess();
+SystemRegularClient() = ClientProcess() ||| ServerProcess();
+SystemAttackerClient() = AttackerProcess() ||| ServerProcess();
+
+#define client_server_connected clientConnectedTo == Server && serverConnectedTo == Client;
+#assert SystemMultipleClient deadlockfree;
+#assert SystemRegularClient deadlockfree;
+#assert SystemAttackerClient deadlockfree;
+#assert SystemRegularClient reaches client_server_connected;
