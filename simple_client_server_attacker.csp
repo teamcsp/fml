@@ -98,10 +98,9 @@ ClientConnected(x) =
    	}
     else {
        attackerconnected{ attacker_server_connected = true } ->
-       network?attacker_server_key.HelloRequest -> AttackerReNegotiate()
+       network?attacker_server_key.HelloRequest -> AttackerProcess()
     };
 
-AttackerClientProcess() = AttackerNegotiate(); 
 AttackerNegotiate() = 
 	network!Attacker.Hello ->
 	network!Attacker.KeyShare ->
@@ -201,13 +200,15 @@ ServerConnected(x) =
    	};
 
 
-AttackerProcess() = AttackerClientProcess();
+AttackerProcess() = AttackerNegotiate() [] AttackerReNegotiate();
 SystemMultipleClient() = ClientProcess() ||| ServerProcess() ||| AttackerProcess();
 SystemRegularClient() = ClientProcess() ||| ServerProcess();
 SystemAttackerClient() = AttackerProcess() ||| ServerProcess();
 
 #define client_server_connected clientConnectedTo == Server && serverConnectedTo == Client;
+#define attacker_server_isConnected attacker_server_connected == true && serverConnectedTo == Attacker;
 #assert SystemMultipleClient deadlockfree;
 #assert SystemRegularClient deadlockfree;
 #assert SystemAttackerClient deadlockfree;
 #assert SystemRegularClient reaches client_server_connected;
+#assert SystemMultipleClient reaches attacker_server_isConnected;
