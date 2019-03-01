@@ -199,9 +199,9 @@ AttackerReNegotiate() =
 	XWithKeyYServerCert(Attacker, attacker_server_key));
 
 AttackerAsServer() = 
-	network!Client.Hello ->
+	network?Client.Hello ->
 	attackerBuffer!Client.Hello ->
-	network!Client.KeyShare ->
+	network?Client.KeyShare ->
 	attackerBuffer!Client.KeyShare ->
 	AttackerProcess();
 	
