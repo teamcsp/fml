@@ -32,6 +32,9 @@ channel attackerBuffer 10;
 
 ClientProcess() = ClientNegotiate();
 
+/*
+	This client process makes an initial negotiation with the server
+*/
 ClientNegotiate() = 
 	network!Client.Hello ->
 	network!Client.KeyShare ->
@@ -44,6 +47,10 @@ ClientNegotiate() =
 	[]
 	XReceiveServerCert(Client));
 
+/*
+	This client process makes an renegotiation with the server.
+	This should only occur when a connection has already been established with the server
+*/
 ClientReNegotiate() = 
 	network!client_server_key.Client.Hello ->
 	network!client_server_key.Client.KeyShare ->
@@ -55,7 +62,15 @@ ClientReNegotiate() =
 	(XWithKeyYReceiveCertRequest(Client, client_server_key)
 	[]
 	XWithKeyYServerCert(Client, client_server_key));
-
+	
+	
+/*
+	This process is part of client negotiation.
+	This occurs when the client receives a Certificate Request from the server.
+	
+	x refers to the type of client involved.
+	x can either be a real client or an attacker.
+*/
 XReceiveCertRequest(x) =
 	network?ServerCertificateRequest -> 
 	network?ServerCertificate ->	
@@ -66,6 +81,13 @@ XReceiveCertRequest(x) =
 	network!x.Done ->
 	ClientConnected(x);
 
+/*
+	This process is part of client negotiation.
+	This occurs when the client *does not* receive a Certificate Request from the server.
+	
+	x refers to the type of client involved.
+	x can either be a real client or an attacker.
+*/
 XReceiveServerCert(x) = 
 	network?ServerCertificate ->
 	network?ServerCertificateSignature ->
@@ -73,6 +95,16 @@ XReceiveServerCert(x) =
 	network!x.Done ->
 	ClientConnected(x);
 
+/*
+	This process is part of client renegotiation.
+	This occurs when the client receives a Certificate Request from the server.
+	
+	x refers to the type of client involved.
+	x can either be a real client or an attacker.
+	
+	y refers to the key used for the encrypted message
+	y can either be client_server_key or attacker_server_key
+*/
 XWithKeyYReceiveCertRequest(x,y) =
 	network?y.ServerCertificateRequest -> 
 	network?y.ServerCertificate ->	
@@ -83,6 +115,16 @@ XWithKeyYReceiveCertRequest(x,y) =
 	network!y.x.Done ->
 	ClientConnected(x);
 
+/*
+	This process is part of client renegotiation.
+	This occurs when the client *does not* receive a Certificate Request from the server.
+	
+	x refers to the type of client involved.
+	x can either be a real client or an attacker.
+	
+	y refers to the key used for the encrypted message.
+	y can either be client_server_key or attacker_server_key
+*/
 XWithKeyYServerCert(x,y) = 
 	network?y.ServerCertificate ->
 	network?y.ServerCertificateSignature ->
@@ -90,7 +132,13 @@ XWithKeyYServerCert(x,y) =
 	network!y.x.Done ->
 	ClientConnected(x);
 
-
+/*
+	This client process occurs once the TLS/SSL handshake is complete
+	It waits for a HelloRequest from the server to start a client renegotiation process
+	The attacker process can be triggered if the attacker is connected to the server as a "client"
+	
+	x refers to the type of client.
+*/
 ClientConnected(x) = 
     if (x == Client) {
        clientConnected{ clientConnectedTo = Server } -> 
@@ -103,6 +151,11 @@ ClientConnected(x) =
 
 ServerProcess() = ServerNegotiate();
 
+/*
+	This server process makes an initial negotiation with the client.
+	x refers to the type of Client.
+	x can either be a client or an attacker
+*/
 ServerNegotiate() = 
 	network?x.Hello ->
 	network?x.KeyShare ->
@@ -114,7 +167,17 @@ ServerNegotiate() =
 	(ServerRequestCert() 
 	[]
 	ServerSendCert());
+
+/*
+	This server process makes an renegotiation with the client.
+	This should only occur when a connection has already been established with the client
 	
+	y refers to the type of key used for the encrypted message
+	y can either be client_server_key or attacker_server_key
+	
+	x refers to the type of client involved
+	x can either be client or attacker
+*/
 ServerReNegotiate(y) = 
 	network?y.x.Hello ->
 	network?y.x.KeyShare ->
@@ -126,7 +189,11 @@ ServerReNegotiate(y) =
 	(ServerRequestCertWithKeyY(y) 
 	[]
 	ServerSendCertWithKeyY(y));	
-		
+
+/*
+	This process is part of client negotiation.
+	This occurs when the server decides to request a certificate from the client
+*/
 ServerRequestCert() = 
 	network!ServerCertificateRequest -> 
 	network!ServerCertificate ->	
@@ -137,7 +204,11 @@ ServerRequestCert() =
 	network?x.Done ->	
 	serverconnected{serverConnectedTo = x} ->
 	ServerConnected(x);
-	
+
+/*
+	This process is part of client negotiation.
+	This occurs when the server *does not* request a certificate from the client
+*/
 ServerSendCert() = 
 	network!ServerCertificate ->
 	network!ServerCertificateSignature ->
@@ -145,7 +216,17 @@ ServerSendCert() =
 	network?x.Done ->
 	serverconnected{serverConnectedTo = x} ->
 	ServerConnected(x);
+
+/*
+	This process is part of server renegotiation.
+	This occurs when the server decides to request a certificate from the client
 	
+	x refers to the type of client involved.
+	x can either be a real client or an attacker.
+	
+	y refers to the key used for the encrypted message
+	y can either be client_server_key or attacker_server_key
+*/
 ServerRequestCertWithKeyY(y) = 
 	network!y.ServerCertificateRequest -> 
 	network!y.ServerCertificate ->	
@@ -156,7 +237,17 @@ ServerRequestCertWithKeyY(y) =
 	network?y.x.Done ->	
 	serverconnected{serverConnectedTo = x} ->
 	ServerConnected(x);
+
+/*
+	This process is part of client renegotiation.
+	This occurs when the server *does not* request a certificate from the client
 	
+	x refers to the type of client involved.
+	x can either be a real client or an attacker.
+	
+	y refers to the key used for the encrypted message.
+	y can either be client_server_key or attacker_server_key
+*/
 ServerSendCertWithKeyY(y) = 
 	network!y.ServerCertificate ->
 	network!y.ServerCertificateSignature ->
@@ -165,7 +256,12 @@ ServerSendCertWithKeyY(y) =
 	serverconnected{serverConnectedTo = x} ->
 	ServerConnected(x);
 
-
+/*
+	This server process occurs once the TLS/SSL handshake is complete
+	It sends a HelloRequest to the client and starts the server renegotiation process
+	
+	x refers to the type of client connected to the server.
+*/
 ServerConnected(x) = 
 	if (x == Client) {
     	network!client_server_key.HelloRequest -> ServerReNegotiate(client_server_key)
@@ -174,6 +270,9 @@ ServerConnected(x) =
        	network!attacker_server_key.HelloRequest -> ServerReNegotiate(attacker_server_key)
    	};
 
+/*
+	This attacker process negotiates with the server as a "Client"
+*/
 AttackerNegotiate() = 
 	network!Attacker.Hello ->
 	network!Attacker.KeyShare ->
@@ -186,6 +285,9 @@ AttackerNegotiate() =
 	[]
 	XReceiveServerCert(Attacker));
 
+/*
+	This attacker process renegotiates with the server as a "Client"
+*/
 AttackerReNegotiate() = 
 	network!attacker_server_key.Attacker.Hello ->
 	network!attacker_server_key.Attacker.KeyShare ->
@@ -198,17 +300,31 @@ AttackerReNegotiate() =
 	[]
 	XWithKeyYServerCert(Attacker, attacker_server_key));
 
+
+/*
+	This attacker process acts as server by
+	receiving messages from the client and 
+	putting the messages into its buffer 
+*/ 
 AttackerAsServer() = 
 	network?Client.Hello ->
 	attackerBuffer!Client.Hello ->
 	network?Client.KeyShare ->
 	attackerBuffer!Client.KeyShare ->
 	AttackerProcess();
-	
-AttackerRelay() = attackerBuffer?x.z -> network!attacker_server_key.x.z -> AttackerProcess()
-               [] network?x.z -> attackerBuffer!x.z -> AttackerProcess() 
-               [] network?attacker_server_key.z -> network!z -> AttackerProcess() 
-               [] network?x.z -> network!attacker_server_key.x.z -> AttackerProcess();
+
+/*
+	This attacker process acts as a relay. This is both a "server" and a "client"
+	It does one of four things:
+	1. Intercepts (client-to-server) message from the network and put it in its buffer
+	2. Reads message from its buffer and sends it as an encrypted message to the server
+	3. Reads encrypted message from the server and sends the decrypted message to the client
+	4. Intercepts (client-to-server) message from the network and sends it as an encrypted message to the server
+*/
+AttackerRelay() = attackerBuffer?x.z -> network!attacker_server_key.x.z -> AttackerProcess() // 2
+               [] network?x.z -> attackerBuffer!x.z -> AttackerProcess() // 1
+               [] network?attacker_server_key.z -> network!z -> AttackerProcess() // 3
+               [] network?x.z -> network!attacker_server_key.x.z -> AttackerProcess(); //4
 
 AttackerProcess() = AttackerNegotiate() [] AttackerReNegotiate() [] AttackerAsServer() [] AttackerRelay();
 SystemMultipleClient() = ClientProcess() ||| ServerProcess() ||| AttackerProcess();
