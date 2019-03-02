@@ -174,6 +174,9 @@ ServerConnected(x) =
        	network!attacker_server_key.HelloRequest -> ServerReNegotiate(attacker_server_key)
    	};
 
+/*
+	This attacker process connects to the server as a "Client"
+*/
 AttackerNegotiate() = 
 	network!Attacker.Hello ->
 	network!Attacker.KeyShare ->
@@ -186,6 +189,9 @@ AttackerNegotiate() =
 	[]
 	XReceiveServerCert(Attacker));
 
+/*
+	This attacker process renegotiates with the server
+*/
 AttackerReNegotiate() = 
 	network!attacker_server_key.Attacker.Hello ->
 	network!attacker_server_key.Attacker.KeyShare ->
@@ -198,17 +204,31 @@ AttackerReNegotiate() =
 	[]
 	XWithKeyYServerCert(Attacker, attacker_server_key));
 
+
+/*
+	This attacker process acts as server by
+	receiving messages from the client and 
+	putting the messages into its buffer 
+*/ 
 AttackerAsServer() = 
 	network?Client.Hello ->
 	attackerBuffer!Client.Hello ->
 	network?Client.KeyShare ->
 	attackerBuffer!Client.KeyShare ->
 	AttackerProcess();
-	
-AttackerRelay() = attackerBuffer?x.z -> network!attacker_server_key.x.z -> AttackerProcess()
-               [] network?x.z -> attackerBuffer!x.z -> AttackerProcess() 
-               [] network?attacker_server_key.z -> network!z -> AttackerProcess() 
-               [] network?x.z -> network!attacker_server_key.x.z -> AttackerProcess();
+
+/*
+	This attacker process acts as a relay. This is both "server" and "client"
+	It does one of four things:
+	1. Intercept (client-to-server) message from the network and put it in its buffer
+	2. Read message from its buffer and sends it to the server
+	3. Read encrypted message from the server and sends the decrypted message to the client
+	4. 
+*/
+AttackerRelay() = attackerBuffer?x.z -> network!attacker_server_key.x.z -> AttackerProcess() // 2
+               [] network?x.z -> attackerBuffer!x.z -> AttackerProcess() // 1
+               [] network?attacker_server_key.z -> network!z -> AttackerProcess() // 3
+               [] network?x.z -> network!attacker_server_key.x.z -> AttackerProcess(); //4
 
 AttackerProcess() = AttackerNegotiate() [] AttackerReNegotiate() [] AttackerAsServer() [] AttackerRelay();
 SystemMultipleClient() = ClientProcess() ||| ServerProcess() ||| AttackerProcess();
