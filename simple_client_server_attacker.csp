@@ -135,6 +135,9 @@ XWithKeyYServerCert(x,y) =
 /*
 	This client process occurs once the TLS/SSL handshake is complete
 	It waits for a HelloRequest from the server to start a client renegotiation process
+	The attacker process can be triggered if the attacker is connected to the server as a "client"
+	
+	x refers to the type of client.
 */
 ClientConnected(x) = 
     if (x == Client) {
@@ -148,6 +151,11 @@ ClientConnected(x) =
 
 ServerProcess() = ServerNegotiate();
 
+/*
+	This server process makes an initial negotiation with the client.
+	x refers to the type of Client.
+	x can either be a client or an attacker
+*/
 ServerNegotiate() = 
 	network?x.Hello ->
 	network?x.KeyShare ->
@@ -159,7 +167,17 @@ ServerNegotiate() =
 	(ServerRequestCert() 
 	[]
 	ServerSendCert());
+
+/*
+	This server process makes an renegotiation with the client.
+	This should only occur when a connection has already been established with the client
 	
+	y refers to the type of key used for the encrypted message
+	y can either be client_server_key or attacker_server_key
+	
+	x refers to the type of client involved
+	x can either be client or attacker
+*/
 ServerReNegotiate(y) = 
 	network?y.x.Hello ->
 	network?y.x.KeyShare ->
@@ -171,7 +189,11 @@ ServerReNegotiate(y) =
 	(ServerRequestCertWithKeyY(y) 
 	[]
 	ServerSendCertWithKeyY(y));	
-		
+
+/*
+	This process is part of client negotiation.
+	This occurs when the server decides to request a certificate from the client
+*/
 ServerRequestCert() = 
 	network!ServerCertificateRequest -> 
 	network!ServerCertificate ->	
@@ -182,7 +204,11 @@ ServerRequestCert() =
 	network?x.Done ->	
 	serverconnected{serverConnectedTo = x} ->
 	ServerConnected(x);
-	
+
+/*
+	This process is part of client negotiation.
+	This occurs when the server *does not* request a certificate from the client
+*/
 ServerSendCert() = 
 	network!ServerCertificate ->
 	network!ServerCertificateSignature ->
@@ -190,7 +216,17 @@ ServerSendCert() =
 	network?x.Done ->
 	serverconnected{serverConnectedTo = x} ->
 	ServerConnected(x);
+
+/*
+	This process is part of server renegotiation.
+	This occurs when the server decides to request a certificate from the client
 	
+	x refers to the type of client involved.
+	x can either be a real client or an attacker.
+	
+	y refers to the key used for the encrypted message
+	y can either be client_server_key or attacker_server_key
+*/
 ServerRequestCertWithKeyY(y) = 
 	network!y.ServerCertificateRequest -> 
 	network!y.ServerCertificate ->	
@@ -201,7 +237,17 @@ ServerRequestCertWithKeyY(y) =
 	network?y.x.Done ->	
 	serverconnected{serverConnectedTo = x} ->
 	ServerConnected(x);
+
+/*
+	This process is part of client renegotiation.
+	This occurs when the server *does not* request a certificate from the client
 	
+	x refers to the type of client involved.
+	x can either be a real client or an attacker.
+	
+	y refers to the key used for the encrypted message.
+	y can either be client_server_key or attacker_server_key
+*/
 ServerSendCertWithKeyY(y) = 
 	network!y.ServerCertificate ->
 	network!y.ServerCertificateSignature ->
@@ -210,7 +256,12 @@ ServerSendCertWithKeyY(y) =
 	serverconnected{serverConnectedTo = x} ->
 	ServerConnected(x);
 
-
+/*
+	This server process occurs once the TLS/SSL handshake is complete
+	It sends a HelloRequest to the client and starts the server renegotiation process
+	
+	x refers to the type of client connected to the server.
+*/
 ServerConnected(x) = 
 	if (x == Client) {
     	network!client_server_key.HelloRequest -> ServerReNegotiate(client_server_key)
