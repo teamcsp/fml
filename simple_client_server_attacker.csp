@@ -314,6 +314,17 @@ AttackerAsServer() =
 	AttackerProcess();
 
 /*
+	This is AttackerAsServer for Specific Attacker 
+
+SpecificAttackerAsServer() = 
+	network?Client.Hello ->
+	attackerBuffer!Client.Hello ->
+	network?Client.KeyShare ->
+	attackerBuffer!Client.KeyShare ->
+	SpecificAttackerProcess();
+*/ 
+
+/*
 	This attacker process acts as a relay. This is both a "server" and a "client"
 	It does one of four things:
 	1. Intercepts (client-to-server) message from the network and put it in its buffer
@@ -329,24 +340,26 @@ AttackerRelay() = attackerBuffer?x.z -> network!attacker_server_key.x.z -> Attac
 /*
 	This attacker relay sub process is specific in the sense that it will only capture and replay messages
 	from the Client such as Client.Hello messages but not its own messages such as Attacker.Hello
+
+SpecificAttackerRelay() = attackerBuffer?Client.z -> network!attacker_server_key.Client.z -> SpecificAttackerProcess() // 2
+               [] network?Client.z -> attackerBuffer!Client.z -> SpecificAttackerProcess() // 1
+               [] network?attacker_server_key.z -> network!z -> SpecificAttackerProcess() // 3
+               [] network?Client.z -> network!attacker_server_key.Client.z -> SpecificAttackerProcess(); //4
 */
-SpecificAttackerRelay() = attackerBuffer?Client.z -> network!attacker_server_key.Client.z -> AttackerProcess() // 2
-               [] network?Client.z -> attackerBuffer!Client.z -> AttackerProcess() // 1
-               [] network?attacker_server_key.z -> network!z -> AttackerProcess() // 3
-               [] network?Client.z -> network!attacker_server_key.Client.z -> AttackerProcess(); //4
 
 AttackerProcess() = AttackerNegotiate() [] AttackerReNegotiate() [] AttackerAsServer() [] AttackerRelay();
-SpecificAttackerProcess() = AttackerNegotiate() [] AttackerReNegotiate() [] AttackerAsServer() [] SpecificAttackerRelay();
+
+//SpecificAttackerProcess() = AttackerNegotiate() [] AttackerReNegotiate() [] SpecificAttackerAsServer() [] SpecificAttackerRelay();
 
 SystemMultipleClient() = ClientProcess() ||| ServerProcess() ||| AttackerProcess();
-SystemMultipleClientWithSpecificAttacker() = ClientProcess() ||| ServerProcess() ||| SpecificAttackerProcess();
+//SystemMultipleClientWithSpecificAttacker() = ClientProcess() ||| ServerProcess() ||| SpecificAttackerProcess();
 SystemRegularClient() = ClientProcess() ||| ServerProcess();
 SystemAttackerClient() = AttackerProcess() ||| ServerProcess();
 
 #define client_server_connected clientConnectedTo == Server && serverConnectedTo == Client;
 #define violation attacker_server_connected == true && client_server_connected;
 #assert SystemMultipleClient deadlockfree;
-#assert SystemMultipleClientWithSpecificAttacker deadlockfree;
+//#assert SystemMultipleClientWithSpecificAttacker deadlockfree;
 #assert SystemRegularClient deadlockfree;
 #assert SystemAttackerClient deadlockfree;
 #assert SystemRegularClient reaches client_server_connected;
