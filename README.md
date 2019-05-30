@@ -1,6 +1,11 @@
 # fml
 Group Project Uno [ CS3211 - Parallel and Concurrent Programming ]
 
+This project models the TLS/SSL protocol operating under a scenario that consists of the following entities:
+- client
+- server 
+- Dolev-Yao attacker.  
+
 **Process Analysis Toolkit** (PAT) is a model checker for concurrent systems.  
 The model is written in the CSP# language.
 
